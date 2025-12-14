@@ -9,3 +9,5 @@ ipywidgets>=7.6.3
 matplotlib>=3.4.2
 vectorbt>=0.21.0
 yfinance>=0.1.62
+fonttools>=4.61.0 # not directly required, pinned by Snyk to avoid a vulnerability
+urllib3>=2.6.0 # not directly required, pinned by Snyk to avoid a vulnerability
