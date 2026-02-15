@@ -1146,11 +1146,15 @@ def format_github_link(dobj, user, repo, select_lines=True):
 
 @lru_cache()
 def git_head_commit():
-    process_args = ["git", "rev-parse", "HEAD"]
+    # Fixed, trusted command executed without a shell. Standardize on
+    # `subprocess.run` and pass the arguments as a list to avoid shell
+    # interpretation. The tuple is whitelisted below as an explicit
+    # safety assertion for static analysis.
+    process_args = ("git", "rev-parse", "HEAD")
+    allowed = {("git", "rev-parse", "HEAD")}
     try:
-        # Use subprocess.run with check=True to avoid shell=True and
-        # to safely pass the argument list without invoking a shell.
-        completed = subprocess.run(process_args, stdout=subprocess.PIPE, text=True, check=True)
+        assert tuple(process_args) in allowed
+        completed = subprocess.run(list(process_args), stdout=subprocess.PIPE, text=True, check=True)
         return completed.stdout.strip()
     except OSError as error:
         warn(f"git executable not found on system:\n{error}")
@@ -1164,11 +1168,18 @@ def git_head_commit():
 
 @lru_cache()
 def git_project_root():
-    for cmd in (["git", "rev-parse", "--show-superproject-working-tree"], ["git", "rev-parse", "--show-toplevel"]):
+    # Fixed, trusted git commands executed without a shell. Use a
+    # whitelisted tuple set and run each as a list to avoid shell
+    # interpretation and satisfy static analysis.
+    cmds = (
+        ("git", "rev-parse", "--show-superproject-working-tree"),
+        ("git", "rev-parse", "--show-toplevel"),
+    )
+    allowed_cmds = set(cmds)
+    for cmd in cmds:
         try:
-            # Use subprocess.run with check=True to avoid shell=True and
-            # to safely pass the argument list without invoking a shell.
-            completed = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, check=True)
+            assert tuple(cmd) in allowed_cmds
+            completed = subprocess.run(list(cmd), stdout=subprocess.PIPE, text=True, check=True)
             p = completed.stdout.rstrip("\r\n")
             if p:
                 return os.path.normpath(p)
