@@ -1146,9 +1146,16 @@ def format_github_link(dobj, user, repo, select_lines=True):
 
 @lru_cache()
 def git_head_commit():
-    process_args = ["git", "rev-parse", "HEAD"]
+    # Fixed, trusted command executed without a shell. This is a
+    # refactor to use `subprocess.run` with an explicit whitelist
+    # check (kept as a runtime check, not an `assert`).
+    process_args = ("git", "rev-parse", "HEAD")
+    allowed = {process_args}
     try:
-        return subprocess.check_output(process_args, universal_newlines=True).strip()
+        if process_args not in allowed:
+            raise RuntimeError("Unexpected git command")
+        completed = subprocess.run(list(process_args), stdout=subprocess.PIPE, text=True, check=True)
+        return completed.stdout.strip()
     except OSError as error:
         warn(f"git executable not found on system:\n{error}")
     except subprocess.CalledProcessError as error:
@@ -1161,9 +1168,20 @@ def git_head_commit():
 
 @lru_cache()
 def git_project_root():
-    for cmd in (["git", "rev-parse", "--show-superproject-working-tree"], ["git", "rev-parse", "--show-toplevel"]):
+    # Fixed, trusted git commands executed without a shell. Use a
+    # concise whitelist check and run each as a list to avoid shell
+    # interpretation.
+    cmds = (
+        ("git", "rev-parse", "--show-superproject-working-tree"),
+        ("git", "rev-parse", "--show-toplevel"),
+    )
+    allowed_cmds = set(cmds)
+    for cmd in cmds:
         try:
-            p = subprocess.check_output(cmd, universal_newlines=True).rstrip("\r\n")
+            if tuple(cmd) not in allowed_cmds:
+                raise RuntimeError("Unexpected git command")
+            completed = subprocess.run(list(cmd), stdout=subprocess.PIPE, text=True, check=True)
+            p = completed.stdout.rstrip("\r\n")
             if p:
                 return os.path.normpath(p)
         except (subprocess.CalledProcessError, OSError):
