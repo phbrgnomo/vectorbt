@@ -1146,14 +1146,14 @@ def format_github_link(dobj, user, repo, select_lines=True):
 
 @lru_cache()
 def git_head_commit():
-    # Fixed, trusted command executed without a shell. Standardize on
-    # `subprocess.run` and pass the arguments as a list to avoid shell
-    # interpretation. The tuple is whitelisted below as an explicit
-    # safety assertion for static analysis.
+    # Fixed, trusted command executed without a shell. This is a
+    # refactor to use `subprocess.run` with an explicit whitelist
+    # check (kept as a runtime check, not an `assert`).
     process_args = ("git", "rev-parse", "HEAD")
-    allowed = {("git", "rev-parse", "HEAD")}
+    allowed = {process_args}
     try:
-        assert tuple(process_args) in allowed
+        if process_args not in allowed:
+            raise RuntimeError("Unexpected git command")
         completed = subprocess.run(list(process_args), stdout=subprocess.PIPE, text=True, check=True)
         return completed.stdout.strip()
     except OSError as error:
@@ -1169,8 +1169,8 @@ def git_head_commit():
 @lru_cache()
 def git_project_root():
     # Fixed, trusted git commands executed without a shell. Use a
-    # whitelisted tuple set and run each as a list to avoid shell
-    # interpretation and satisfy static analysis.
+    # concise whitelist check and run each as a list to avoid shell
+    # interpretation.
     cmds = (
         ("git", "rev-parse", "--show-superproject-working-tree"),
         ("git", "rev-parse", "--show-toplevel"),
@@ -1178,7 +1178,8 @@ def git_project_root():
     allowed_cmds = set(cmds)
     for cmd in cmds:
         try:
-            assert tuple(cmd) in allowed_cmds
+            if tuple(cmd) not in allowed_cmds:
+                raise RuntimeError("Unexpected git command")
             completed = subprocess.run(list(cmd), stdout=subprocess.PIPE, text=True, check=True)
             p = completed.stdout.rstrip("\r\n")
             if p:
