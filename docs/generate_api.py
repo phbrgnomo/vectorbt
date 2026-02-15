@@ -1148,7 +1148,10 @@ def format_github_link(dobj, user, repo, select_lines=True):
 def git_head_commit():
     process_args = ["git", "rev-parse", "HEAD"]
     try:
-        return subprocess.check_output(process_args, universal_newlines=True).strip()
+        # Use subprocess.run with check=True to avoid shell=True and
+        # to safely pass the argument list without invoking a shell.
+        completed = subprocess.run(process_args, stdout=subprocess.PIPE, text=True, check=True)
+        return completed.stdout.strip()
     except OSError as error:
         warn(f"git executable not found on system:\n{error}")
     except subprocess.CalledProcessError as error:
@@ -1163,7 +1166,10 @@ def git_head_commit():
 def git_project_root():
     for cmd in (["git", "rev-parse", "--show-superproject-working-tree"], ["git", "rev-parse", "--show-toplevel"]):
         try:
-            p = subprocess.check_output(cmd, universal_newlines=True).rstrip("\r\n")
+            # Use subprocess.run with check=True to avoid shell=True and
+            # to safely pass the argument list without invoking a shell.
+            completed = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, check=True)
+            p = completed.stdout.rstrip("\r\n")
             if p:
                 return os.path.normpath(p)
         except (subprocess.CalledProcessError, OSError):
